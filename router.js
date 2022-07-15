@@ -29,6 +29,7 @@ app.get('/', (req, res) => {
 
 // GET - Image (/image/:width/:height)
 app.get('/image/:width/:height', async (req, res) => {
+
     // Ensure the provided dimensions are reasonable (i.e. not too large)
     if (parseInt(req.params.width) > 4096 || parseInt(req.params.height) > 4096) {
         log(req.ip, 'GET', 'ERROR: Image dimensions too large (' + req.params.width + 'x' + req.params.height + ').');
@@ -37,6 +38,15 @@ app.get('/image/:width/:height', async (req, res) => {
             message: 'Image dimensions must be less than 4096px.'
         });
     } 
+
+    // Ensure that the provided dimensions are greater than 0 (i.e. not too small)
+    if (parseInt(req.params.width) < 1 || parseInt(req.params.height) < 1) {
+        log(req.ip, 'GET', 'ERROR: Image dimensions too small (' + req.params.width + 'x' + req.params.height + ').');
+        return res.status(400).json({
+            status: 400,
+            message: 'Image dimensions must be greater than 0px.'
+        });
+    }
 
     // Check if the provided dimensions are actually numbers
     if (isNaN(parseInt(req.params.width)) || isNaN(parseInt(req.params.height))) {
