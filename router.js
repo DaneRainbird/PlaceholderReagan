@@ -7,7 +7,7 @@
 let express = require('express')
 let log = require('./helpers/logToFile');
 let fs = require('fs');
-let resizeImage = require('resize-image-buffer');
+let jimp = require('jimp');
 require('dotenv').config();
 let app = express.Router();
 
@@ -69,25 +69,33 @@ app.get('/image/:width/:height', async (req, res) => {
     }
 
     // Resize the image 
-    const image = await resizeImage(imageFile, {
-        width: parseInt(req.params.width),
-        height: parseInt(req.params.height)
-    });
-
-    // Write the image to disk 
-    let newFileName = selectedImage + '-' + req.params.width + '-' + req.params.height + '.png';
-    let newFilePath = __dirname + '/res/images/' + newFileName;
-    fs.writeFileSync(newFilePath, image);
-
-    // Send the image back to the client, and delete after sending
-    res.sendFile(newFilePath, (err) => {
+    jimp.read(imageFile, (err, image) => {
         if (err) {
-            log(req.ip, 'GET', 'ERROR: Unable to send image to client: ' + err);
-            return res.json({'error': err});
+            log(req.ip, 'GET', 'ERROR: Image resize failed (' + req.params.width + 'x' + req.params.height + ').');
+            return res.status(500).json({
+                status: 500,
+                message: 'Image resize failed.'
+            });
         }
-        fs.unlinkSync(newFilePath);
+
+        let newImagePath = __dirname + '/res/images/' + req.params.width + 'x' + req.params.height + '_' + selectedImage; 
+
+        image
+            .resize(parseInt(req.params.width), parseInt(req.params.height))
+            .write(newImagePath, (err) => {
+                if (err) {
+                    log(req.ip, 'GET', 'ERROR: Image save failed (' + req.params.width + 'x' + req.params.height + ').');
+                    return res.status(500).json({'error': err});
+                }
+                res.sendFile(newImagePath, (err) => {
+                    if (err) {
+                        log(req.ip, 'GET', 'ERROR: Unable to send image to client: ' + err);
+                        return res.status(500).json({'error': err});
+                    };
+                    fs.unlinkSync(newImagePath);
+                });
+            });
     });
-    
 });
 
 // GET - Fallback route
